@@ -47,32 +47,18 @@ async fn main() {
     let mut bridson_screen = screens::bridson::BridsonScreen::new();
     let mut house_nav_demo = screens::house_nav_demo::HouseNavDemo::new();
 
-    //let mut scr:&mut dyn Screen = &mut menu_screen;
-
     let mut game_mode = GameScreen::BdgLogo;
 
     loop {
 	//println!("FPS: {}", get_fps());
 
-	let mut scr:&mut dyn Screen = &mut bdg_logo_screen;	
-
-	match game_mode {
-	    GameScreen::BdgLogo => {
-		scr = &mut bdg_logo_screen;
-	    }
-	    GameScreen::Title => {
-		scr = &mut title_screen;
-	    }
-	    GameScreen::Menu => {
-		scr = &mut menu_screen;
-	    }
-	    GameScreen::Bridson => {
-		scr = &mut bridson_screen;
-	    }
-	    GameScreen::HouseNav => {
-		scr = &mut house_nav_demo;
-	    }
-	}
+	let mut scr:&mut dyn Screen = match game_mode {
+	    GameScreen::BdgLogo => &mut bdg_logo_screen,
+	    GameScreen::Title => &mut title_screen,
+	    GameScreen::Menu => &mut menu_screen,
+	    GameScreen::Bridson => &mut bridson_screen,
+	    GameScreen::HouseNav => &mut house_nav_demo,
+	};
 
 	if !(scr.is_loaded()) {
 	    scr.load(&mut texture_mgr).await;

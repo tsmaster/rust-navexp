@@ -31,7 +31,6 @@ impl TextureMgr {
 	self.error_count = 0;
 	self.target_count = texture_names.len() as u32;
 	
-	let mut loaded:u32 = 0;
 	for n in texture_names {
 	    let texture:Texture2D = load_texture(&n).await.unwrap();
 	    self.texture_map.insert(n, texture);

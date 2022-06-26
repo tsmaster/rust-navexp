@@ -36,7 +36,7 @@ impl HouseNavDemo {
 
 #[async_trait]
 impl Screen for HouseNavDemo {
-    fn tick(&mut self, dt: f32) {
+    fn tick(&mut self, _dt: f32) {
 	// todo move things around
 
 	if is_key_down(KeyCode::Escape) {

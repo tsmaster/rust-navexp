@@ -274,7 +274,7 @@ impl Screen for BridsonScreen {
 		self.insert_point(&p);
 	    } else {
 		
-		for i in 0 .. 5 {
+		for _i in 0 .. 5 {
 		    
 		    let open_index = self.find_open_index();
 		    if open_index < 0 {
@@ -301,7 +301,7 @@ impl Screen for BridsonScreen {
 	self.is_complete_flag
     }
 
-    fn render(&self, tex_mgr: &TextureMgr) {
+    fn render(&self, _tex_mgr: &TextureMgr) {
 	clear_background(WHITE);
 
 	let dot_size = 2.5;
