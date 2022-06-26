@@ -43,6 +43,9 @@ pub struct BridsonNavScreen
 
     sub_mode: SubMode,
     voronoi_data: Option<Voronoi>,
+
+    start_index: i32,
+    end_index: i32,
 }
 
 impl BridsonNavScreen {
@@ -86,6 +89,8 @@ impl BridsonNavScreen {
 	    cell_width: cell_width,
 	    sub_mode: SubMode::AddPoints,
 	    voronoi_data: Option::<Voronoi>::None,
+	    start_index: -1,
+	    end_index: -1,
 	}
     }
 
@@ -96,7 +101,9 @@ impl BridsonNavScreen {
 	self.occupancy = vec![-1; self.cell_count.try_into().unwrap()];
 	self.is_complete_flag = false;
 	self.sub_mode = SubMode::AddPoints;
-	self.voronoi_data = Option::<Voronoi>::None;	
+	self.voronoi_data = Option::<Voronoi>::None;
+	self.start_index = -1;
+	self.end_index = -1;
     }
 
     fn point_in_box(&self, p: &Vec2f) -> bool {
@@ -242,10 +249,6 @@ impl Screen for BridsonNavScreen {
 
 	self.time_elapsed += dt;
 
-	if self.time_elapsed >= 25.0 {
-	    self.is_complete_flag = true;
-	}
-
 	if is_key_down(KeyCode::Escape) {
 	    self.is_complete_flag = true;
 	    return;
@@ -254,21 +257,21 @@ impl Screen for BridsonNavScreen {
 	if self.sub_mode == SubMode::AddPoints {
 
  	    if self.points.len() == 0 {
- 		let p = Vec2f {
-		    x: screen_width() / 2.0,
-		    y: screen_height() / 2.0
+		let p = Vec2f {
+		    x: gen_range::<f32>(0.0, screen_width()),
+		    y: gen_range::<f32>(0.0, screen_height()),
 		};
 
 		self.insert_point(&p);
 	    } else {
-		
-		for _i in 0 .. 5 {
-		    
+		loop {
 		    let open_index = self.find_open_index();
 		    if open_index < 0 {
-			//self.is_complete_flag = true;
 			self.sub_mode = SubMode::Show;
 			self.make_voronoi();
+			self.start_index = gen_range::<i32>(0, self.points.len() as i32);
+			self.end_index = gen_range::<i32>(0, self.points.len() as i32);
+			println!("start {} end {}", self.start_index, self.end_index);
 			break;
 		    }
 		    else
@@ -292,16 +295,25 @@ impl Screen for BridsonNavScreen {
     fn render(&self, _tex_mgr: &TextureMgr) {
 	clear_background(WHITE);
 
-	let dot_size = 2.5;
-	let half_dot_size = dot_size / 2.0;
+	let mut dot_size = 2.5;
 
 	if self.points.len() > 0 {
 	    for i in 0 .. self.points.len() {
 		let p = &self.points[i];
 
-		let c = match self.points_open[i] {
-		    true => BLUE,
-		    false => GREEN
+		let mut c = BLUE;
+
+		if !self.points_open[i] {
+		    if i as i32 == self.start_index {
+			dot_size = 7.5;
+			c = GREEN;
+		    } else if i as i32 == self.end_index {
+			dot_size = 7.5;
+			c = RED;
+		    } else {
+			c = BLACK;
+			dot_size = 2.5;
+		    }
 		};
 
 		/*
@@ -311,14 +323,16 @@ impl Screen for BridsonNavScreen {
 			       c);		
 		 */
 
-		draw_rectangle(p.x - half_dot_size,
-			       p.y - half_dot_size,
+		/*
+		draw_rectangle(p.x - dot_size * 0.5,
+			       p.y - dot_size * 0.5,
 			       dot_size,
 			       dot_size,
 			       c);
+		 */
 		 
 		
-		//draw_circle(p.x, p.y, half_dot_size, c);
+		draw_circle(p.x, p.y, dot_size * 0.5, c);
 	    }
 	}
 
