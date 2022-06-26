@@ -1,0 +1,18 @@
+[package]
+name = "navexp"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+macroquad = "0.3.20"
+#sapp-wasm = "0.1.26"
+
+#futures = "0.3"
+
+#rand = "0.8.5"
+
+voronoice = "0.2.0"
+
+async-trait = "0.1.56"

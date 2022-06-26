@@ -1,0 +1,34 @@
+How to include local files
+
+https://stackoverflow.com/questions/26388861/how-can-i-include-a-module-from-another-file-from-the-same-project
+
+https://stackoverflow.com/questions/45519176/how-do-i-use-or-import-a-local-rust-file?noredirect=1&lq=1
+
+https://stackoverflow.com/questions/26224947/how-do-i-do-a-basic-import-include-of-a-function-from-one-module-to-another-in-r
+
+
+https://medium.com/codex/rust-modules-and-project-structure-832404a33e2e
+
+
+
+Traits
+
+https://blog.rust-lang.org/2015/05/11/traits.html
+
+
+
+Building WASM
+debug
+cargo build --target wasm32-unknown-unknown
+release
+cargo build --release --target wasm32-unknown-unknown
+
+Running WASM
+cd target/wasm32-unknown-unknown/debug
+or
+cd target/wasm32-unknown-unknown/release
+
+basic-http-server .
+
+
+also make sure to copy Textures or other assets to the debug/release folder
