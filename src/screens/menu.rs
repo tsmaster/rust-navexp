@@ -83,7 +83,7 @@ impl Screen for MenuScreen {
 		if ui.button(Vec2::new(40., 40.),
 			     "bridson nav") {
 		    self.is_complete_flag = true;
-		    self.next_screen = Option::<GameScreen>::Some(GameScreen::Bridson);
+		    self.next_screen = Option::<GameScreen>::Some(GameScreen::BridsonNav);
 		}
 
 		if ui.button(Vec2::new(40., 60.),

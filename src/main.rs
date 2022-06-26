@@ -16,6 +16,7 @@ pub enum GameScreen {
     Title,
     Menu,
     Bridson,
+    BridsonNav,
     HouseNav,
 }
 
@@ -45,6 +46,7 @@ async fn main() {
     let mut title_screen = screens::title::TitleScreen::new();
     let mut menu_screen = screens::menu::MenuScreen::new();
     let mut bridson_screen = screens::bridson::BridsonScreen::new();
+    let mut bridson_nav_screen = screens::bridson_nav::BridsonNavScreen::new();
     let mut house_nav_demo = screens::house_nav_demo::HouseNavDemo::new();
 
     let mut game_mode = GameScreen::BdgLogo;
@@ -52,11 +54,12 @@ async fn main() {
     loop {
 	//println!("FPS: {}", get_fps());
 
-	let mut scr:&mut dyn Screen = match game_mode {
+	let scr:&mut dyn Screen = match game_mode {
 	    GameScreen::BdgLogo => &mut bdg_logo_screen,
 	    GameScreen::Title => &mut title_screen,
 	    GameScreen::Menu => &mut menu_screen,
 	    GameScreen::Bridson => &mut bridson_screen,
+	    GameScreen::BridsonNav => &mut bridson_nav_screen,
 	    GameScreen::HouseNav => &mut house_nav_demo,
 	};
 
@@ -75,8 +78,6 @@ async fn main() {
 		    game_mode = GameScreen::Menu;
 		}
 		GameScreen::Menu => {
-		    scr = &mut title_screen;
-		    
 		    match menu_screen.next_screen {
 			Some(m) => {
 			    game_mode = m;
@@ -90,15 +91,18 @@ async fn main() {
 		GameScreen::Bridson => {
 		    bridson_screen.reset();
 		    game_mode = GameScreen::Menu;
-		    scr = &mut menu_screen;
 		}
+		GameScreen::BridsonNav => {
+		    bridson_nav_screen.reset();
+		    game_mode = GameScreen::Menu;
+		}		
 		GameScreen::HouseNav => {
 		    game_mode = GameScreen::Menu;
-		    scr = &mut menu_screen;
 		}
 	    }
+	} else {
+	    scr.render(&texture_mgr);
 	}
-	scr.render(&texture_mgr);
         next_frame().await
     }
 }
