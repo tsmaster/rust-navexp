@@ -173,6 +173,10 @@ impl BridsonNavScreen {
 	self.voronoi_data = Option::<Voronoi>::None;
 	self.start_index = -1;
 	self.end_index = -1;
+	self.prev_index.clear();
+	self.open_set.clear();
+	self.found_distances.clear();
+	self.a_star_nodes.clear();
     }
 
     fn point_in_box(&self, p: &Vec2f) -> bool {
@@ -352,7 +356,7 @@ impl BridsonNavScreen {
 		self.prev_index.insert(self.start_index, -1);
 	    }
 	    Some(n) => {
-		println!("continuing search");
+		//println!("continuing search");
 		println!("processing {:?}", n);
 
 		match &self.voronoi_data {
