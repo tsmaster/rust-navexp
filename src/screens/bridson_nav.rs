@@ -15,6 +15,12 @@ use crate::big_dice_games::math::vector::Vec2f;
 use crate::big_dice_games::util::map;
 use crate::big_dice_games::math::vector::Vector;
 
+//use priority_queue::PriorityQueue;
+use std::collections::BinaryHeap;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::collections::HashSet;
+
 use voronoice::*;
 
 
@@ -22,8 +28,50 @@ use voronoice::*;
 enum SubMode {
     AddPoints,
     Show,
+    FindPath,
 }
 
+#[derive(Debug)]
+struct AStarRecord
+{
+    combined_distances: f32,
+    distance_travelled: f32,
+    heuristic_remaining: f32,
+    point: Vec2f,
+    index: i32,
+}
+
+impl Ord for AStarRecord
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+	// Note, reverse order so we have a min-heap
+	if self.combined_distances > other.combined_distances {
+	    return Ordering::Less;
+	} else if self.combined_distances < other.combined_distances {
+	    return Ordering::Greater;
+	}
+	self.index.cmp(&other.index)
+    }
+}
+
+impl PartialOrd for AStarRecord
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+	Some(self.cmp(other))
+    }
+}
+
+impl Eq for AStarRecord
+{
+
+}
+
+impl PartialEq for AStarRecord
+{
+    fn eq(&self, other: &Self) -> bool {
+	self.index == other.index
+    }
+}
 
 pub struct BridsonNavScreen
 {
@@ -46,6 +94,13 @@ pub struct BridsonNavScreen
 
     start_index: i32,
     end_index: i32,
+
+    a_star_nodes: BinaryHeap<AStarRecord>,
+
+    found_distances: HashMap<i32, f32>,
+    open_set: HashSet<i32>,
+
+    prev_index: HashMap<i32, i32>
 }
 
 impl BridsonNavScreen {
@@ -64,6 +119,16 @@ impl BridsonNavScreen {
 
 	let mut point_list:Vec<Vec2f> = Vec::new();
 	let mut points_open_list:Vec<bool> = Vec::new();
+
+
+	let seconds_since_start = (macroquad::time::get_time() * 1234.5) as u64;
+	let m_pos:Vec2 = mouse_position().into();
+
+	macroquad::rand::srand(seconds_since_start +
+			       m_pos.x as u64 * 1234 +
+			       m_pos.y as u64 * 5678);
+
+
 
 	let v = Vec2f {
 	    x: gen_range::<f32>(0.0, screen_width()),
@@ -91,6 +156,10 @@ impl BridsonNavScreen {
 	    voronoi_data: Option::<Voronoi>::None,
 	    start_index: -1,
 	    end_index: -1,
+	    a_star_nodes: BinaryHeap::new(),
+	    found_distances: HashMap::new(),
+	    open_set: HashSet::new(),
+	    prev_index: HashMap::new(),
 	}
     }
 
@@ -122,7 +191,7 @@ impl BridsonNavScreen {
 		x: p.x as f64,
 		y: p.y as f64,
 	    };
-	    
+
 	    sites.push(site_point);
 	}
 
@@ -155,7 +224,7 @@ impl BridsonNavScreen {
 	if self.points.len() == 0 {
 	    return -1;
 	}
-	
+
 	let offset = gen_range::<usize>(0, self.points.len());
 
 	for i in 0 .. self.points.len() {
@@ -164,6 +233,7 @@ impl BridsonNavScreen {
 		return mod_i as i32;
 	    }
 	}
+
 	-1
     }
 
@@ -171,7 +241,7 @@ impl BridsonNavScreen {
 	let mut out_vec:Vec<Vec2f> = Vec::new();
 
 	let p_index = self.cell_index(p);
-	
+
 	for dx in -2 .. 3 {
 	    for dy in -2 .. 3 {
 		let n_index = p_index + dx + dy * self.num_x;
@@ -179,7 +249,7 @@ impl BridsonNavScreen {
 		    continue;
 		}
 		if self.occupancy[n_index as usize] != -1 {
-		    
+
 		    out_vec.push(self.points[self.occupancy[n_index as usize] as usize]);
 		}
 	    }
@@ -200,7 +270,7 @@ impl BridsonNavScreen {
 	    }
 	}
 
-	
+
 	let ci = self.cell_index(p) as usize;
 	if self.occupancy[ci] == -1 {
 	    self.occupancy[ci] = self.points.len() as i32;
@@ -228,10 +298,111 @@ impl BridsonNavScreen {
 	    };
 	    out_vec.push(*center_vec + offset_vec);
 	}
-	
+
 	self.points_open[i] = false;
 
 	out_vec
+    }
+
+    fn find_index(&self, target: &Vec2f) -> i32 {
+	let mut out_index = -1;
+	let mut best_dist = 0.0;
+
+	for i in 0 .. self.points.len() {
+	    let p = & self.points[i];
+
+	    let dist = (*target - *p).mag();
+
+	    if (out_index < 0) || (dist < best_dist) {
+		out_index = i as i32;
+		best_dist = dist;
+	    }
+	}
+
+	out_index
+    }
+
+    fn calc_heuristic_by_indices(&self, a:i32, b:i32) -> f32 {
+	(self.points[a as usize] - self.points[b as usize]).mag()
+    }
+
+    fn advance_a_star(&mut self) {
+	if self.found_distances.contains_key(&self.end_index) {
+	    self.sub_mode = SubMode::Show;
+	    return;
+	}
+
+	match self.a_star_nodes.pop() {
+	    None => {
+		// first step; push start on
+		println!("starting search");
+
+		let h = self.calc_heuristic_by_indices(
+			self.start_index, self.end_index);
+
+		self.a_star_nodes.push(AStarRecord {
+		    combined_distances: h,
+		    distance_travelled: 0.0,
+		    heuristic_remaining: h,
+		    point: self.points[self.start_index as usize],
+		    index: self.start_index,
+		});
+		self.found_distances.insert(self.start_index, 0.0);
+		self.open_set.insert(self.start_index);
+		self.prev_index.insert(self.start_index, -1);
+	    }
+	    Some(n) => {
+		println!("continuing search");
+		println!("processing {:?}", n);
+
+		match &self.voronoi_data {
+		    None => {
+			self.sub_mode = SubMode::Show;
+		    }
+		    Some(vd) => {
+			let cell = &vd.cell(n.index as usize);
+
+			for neighbor_index in cell.iter_neighbors() {
+			    //println!("considering neighbor index {}", neighbor_index);
+			    let neighbor_point = self.points[neighbor_index as usize];
+			    let this_step_dist = (neighbor_point - n.point).mag();
+			    let new_elapsed_dist = n.distance_travelled + this_step_dist;
+
+			    let mut insert_node = true;
+
+			    let neighbor_index_i32 = neighbor_index as i32;
+			    if self.found_distances.contains_key(&neighbor_index_i32) {
+				insert_node = self.found_distances[&neighbor_index_i32] > new_elapsed_dist;
+			    }
+
+			    if insert_node {
+				/*
+				println!("inserting {} with elapsed dist {}",
+					 neighbor_index,
+					 new_elapsed_dist);*/
+
+				let new_h = self.calc_heuristic_by_indices(
+				    neighbor_index_i32, self.end_index);
+				
+				self.a_star_nodes.push(AStarRecord {
+				    combined_distances: new_h + new_elapsed_dist,
+				    distance_travelled: new_elapsed_dist,
+				    heuristic_remaining: new_h,
+				    point: neighbor_point,
+				    index: neighbor_index_i32,
+				});
+				self.found_distances.insert(neighbor_index_i32,
+							    new_elapsed_dist);
+				self.open_set.insert(neighbor_index_i32);
+				self.prev_index.insert(neighbor_index_i32, n.index);
+			    }
+			}
+
+			//self.open_set.remove(n.index);
+		    }
+		}
+	    }
+	}
     }
 }
 
@@ -243,16 +414,40 @@ impl Screen for BridsonNavScreen {
 
     async fn load(&mut self, _tex_mgr: &mut TextureMgr) {
     }
-    
-    fn tick(&mut self, dt: f32) {
-	// TODO wait for 2 seconds, or get key input
 
+    fn tick(&mut self, dt: f32) {
 	self.time_elapsed += dt;
 
 	if is_key_down(KeyCode::Escape) {
 	    self.is_complete_flag = true;
 	    return;
-	}	
+	}
+
+	if is_key_down(KeyCode::S) {
+	    let m_pos:Vec2 = mouse_position().into();
+	    let mouse_pos_vec = Vec2f::new(m_pos.x, m_pos.y);
+	    let idx = self.find_index(&mouse_pos_vec);
+	    self.start_index = idx;
+	}
+
+	if is_key_down(KeyCode::E) {
+	    let m_pos:Vec2 = mouse_position().into();
+	    let mouse_pos_vec = Vec2f::new(m_pos.x, m_pos.y);
+	    let idx = self.find_index(&mouse_pos_vec);
+	    self.end_index = idx;
+	}
+
+	if is_key_down(KeyCode::R) {
+	    self.reset();
+	}
+
+	if is_key_down(KeyCode::F) {
+	    self.sub_mode = SubMode::FindPath;
+	}
+
+	if self.sub_mode == SubMode::FindPath {
+	    self.advance_a_star();
+	}
 
 	if self.sub_mode == SubMode::AddPoints {
 
@@ -278,7 +473,7 @@ impl Screen for BridsonNavScreen {
 		    {
 			let new_points = self.make_new_points_around(
 			    open_index.try_into().unwrap());
-		
+
 			for p in new_points.iter() {
 			    self.insert_point(p);
 			}
@@ -316,22 +511,28 @@ impl Screen for BridsonNavScreen {
 		    }
 		};
 
+		let i_i32 = i as i32;
+		
+		if self.open_set.contains(&i_i32) {
+		    dot_size = 10.0;
+		}
+
 		/*
 		draw_rectangle(p.x,
-			       p.y,
-			       1.0, 1.0,
-			       c);		
+		p.y,
+		1.0, 1.0,
+		c);
 		 */
 
 		/*
 		draw_rectangle(p.x - dot_size * 0.5,
-			       p.y - dot_size * 0.5,
-			       dot_size,
-			       dot_size,
-			       c);
+		p.y - dot_size * 0.5,
+		dot_size,
+		dot_size,
+		c);
 		 */
-		 
-		
+
+
 		draw_circle(p.x, p.y, dot_size * 0.5, c);
 	    }
 	}
@@ -355,6 +556,20 @@ impl Screen for BridsonNavScreen {
 		    }
 		}
 	    }
+	}
+
+	for (node_index, prev_index) in &self.prev_index {
+	    if (*prev_index == -1) {
+		continue;
+	    }
+	    
+	    let n = self.points[(*node_index) as usize];
+	    let p = self.points[(*prev_index) as usize];
+
+	    draw_line(n.x, n.y,
+		      p.x, p.y,
+		      1.5,
+		      BLUE);
 	}
     }
 

@@ -9,11 +9,20 @@ pub trait Vector {
     fn scale(&self, factor: f32) -> Self;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Vec2f
 {
     pub x: f32,
     pub y: f32,
+}
+
+impl Vec2f {
+    pub fn new(x: f32, y: f32) -> Vec2f {
+	Vec2f {
+	    x: x,
+	    y: y
+	}
+    }
 }
 
 impl Add for Vec2f {
