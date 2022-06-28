@@ -22,7 +22,7 @@ pub struct TitleScreen
 
 impl TitleScreen {
     pub fn new() -> TitleScreen {
-	
+
 	TitleScreen {
 	    is_complete_flag: false,
 	    time_elapsed: 0.0,
@@ -41,16 +41,23 @@ impl Screen for TitleScreen {
 	let texture_filenames = vec!(TITLE_PATH.to_string());
 
 	tex_mgr.load(texture_filenames).await;
-	
+
 	self.is_loaded_flag = true;
     }
-    
+
     fn tick(&mut self, dt: f32) {
 	// TODO wait for 2 seconds, or get key input
 
 	self.time_elapsed += dt;
 
 	if self.time_elapsed >= 2.0 {
+	    self.is_complete_flag = true;
+	}
+
+	if (is_mouse_button_down(MouseButton::Left) ||
+	    is_mouse_button_down(MouseButton::Middle) ||
+	    is_mouse_button_down(MouseButton::Right) ||
+	    is_key_down(KeyCode::Space)) {
 	    self.is_complete_flag = true;
 	}
     }
@@ -63,7 +70,7 @@ impl Screen for TitleScreen {
 	clear_background(WHITE);
 
 	let title_tex = tex_mgr.get_texture(&TITLE_PATH.to_string());
-	
+
 	draw_texture(
 	    *title_tex,
 	    (screen_width() - title_tex.width()) / 2.0,
@@ -76,4 +83,3 @@ impl Screen for TitleScreen {
 	self
     }
 }
-
