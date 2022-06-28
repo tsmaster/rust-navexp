@@ -8,6 +8,7 @@ pub mod menu;
 
 pub mod bridson;
 pub mod bridson_nav;
+pub mod square_nav;
 
 pub mod house_nav_demo;
 

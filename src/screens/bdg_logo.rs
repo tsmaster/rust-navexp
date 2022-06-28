@@ -50,6 +50,13 @@ impl Screen for BdgLogoScreen {
 	if self.time_elapsed >= 2.0 {
 	    self.is_complete_flag = true;
 	}
+
+	if (is_mouse_button_down(MouseButton::Left) ||
+	    is_mouse_button_down(MouseButton::Middle) ||
+	    is_mouse_button_down(MouseButton::Right) ||
+	    is_key_down(KeyCode::Space)) {
+	    self.is_complete_flag = true;
+	}
     }
 
     fn is_complete(&self) -> bool {

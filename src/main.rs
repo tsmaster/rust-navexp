@@ -17,6 +17,7 @@ pub enum GameScreen {
     Menu,
     Bridson,
     BridsonNav,
+    SquareNav,
     HouseNav,
 }
 
@@ -47,6 +48,7 @@ async fn main() {
     let mut menu_screen = screens::menu::MenuScreen::new();
     let mut bridson_screen = screens::bridson::BridsonScreen::new();
     let mut bridson_nav_screen = screens::bridson_nav::BridsonNavScreen::new();
+    let mut square_nav_screen = screens::square_nav::SquareNavScreen::new();
     let mut house_nav_demo = screens::house_nav_demo::HouseNavDemo::new();
 
     let mut game_mode = GameScreen::BdgLogo;
@@ -60,6 +62,7 @@ async fn main() {
 	    GameScreen::Menu => &mut menu_screen,
 	    GameScreen::Bridson => &mut bridson_screen,
 	    GameScreen::BridsonNav => &mut bridson_nav_screen,
+	    GameScreen::SquareNav => &mut square_nav_screen,
 	    GameScreen::HouseNav => &mut house_nav_demo,
 	};
 
@@ -95,7 +98,11 @@ async fn main() {
 		GameScreen::BridsonNav => {
 		    bridson_nav_screen.reset();
 		    game_mode = GameScreen::Menu;
-		}		
+		}
+		GameScreen::SquareNav => {
+		    square_nav_screen.reset();
+		    game_mode = GameScreen::Menu;
+		}				
 		GameScreen::HouseNav => {
 		    game_mode = GameScreen::Menu;
 		}

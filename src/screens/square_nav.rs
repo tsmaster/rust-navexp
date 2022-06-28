@@ -1,4 +1,4 @@
-// screens/bridson_nav.rs
+// screens/square_nav.rs
 
 use std::any::Any;
 
@@ -73,7 +73,7 @@ impl PartialEq for AStarRecord
     }
 }
 
-pub struct BridsonNavScreen
+pub struct SquareNavScreen
 {
     time_elapsed: f32,
     is_complete_flag: bool,
@@ -103,8 +103,8 @@ pub struct BridsonNavScreen
     prev_index: HashMap<i32, i32>
 }
 
-impl BridsonNavScreen {
-    pub fn new() -> BridsonNavScreen {
+impl SquareNavScreen {
+    pub fn new() -> SquareNavScreen {
 	let radius: f32 = 24.0;
 	let cell_width: f32 = radius / 2.0_f32.sqrt();
 
@@ -141,7 +141,7 @@ impl BridsonNavScreen {
 
 	let occupancy:Vec<i32> = vec![-1; cell_count.try_into().unwrap()];
 
-	BridsonNavScreen {
+	SquareNavScreen {
 	    is_complete_flag: false,
 	    time_elapsed: 0.0,
 	    points: point_list,
@@ -387,7 +387,7 @@ impl BridsonNavScreen {
 
 				let new_h = self.calc_heuristic_by_indices(
 				    neighbor_index_i32, self.end_index);
-
+				
 				self.a_star_nodes.push(AStarRecord {
 				    combined_distances: new_h + new_elapsed_dist,
 				    distance_travelled: new_elapsed_dist,
@@ -411,7 +411,7 @@ impl BridsonNavScreen {
 }
 
 #[async_trait]
-impl Screen for BridsonNavScreen {
+impl Screen for SquareNavScreen {
     fn is_loaded(&self) -> bool {
 	true
     }
@@ -492,7 +492,7 @@ impl Screen for BridsonNavScreen {
     }
 
     fn render(&self, _tex_mgr: &TextureMgr) {
-	clear_background(WHITE);
+	clear_background(GRAY);
 
 	let mut dot_size = 2.5;
 
@@ -516,7 +516,7 @@ impl Screen for BridsonNavScreen {
 		};
 
 		let i_i32 = i as i32;
-
+		
 		if self.open_set.contains(&i_i32) {
 		    dot_size = 10.0;
 		}
@@ -556,17 +556,17 @@ impl Screen for BridsonNavScreen {
 				  verts[cells[c][vj]].x as f32,
 				  verts[cells[c][vj]].y as f32,
 				  1.5,
-				  BLUE);
+				  BLACK);
 		    }
 		}
 	    }
 	}
 
 	for (node_index, prev_index) in &self.prev_index {
-	    if *prev_index == -1 {
+	    if (*prev_index == -1) {
 		continue;
 	    }
-
+	    
 	    let n = self.points[(*node_index) as usize];
 	    let p = self.points[(*prev_index) as usize];
 
