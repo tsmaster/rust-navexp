@@ -36,6 +36,7 @@ struct AStarRecord
     heuristic_remaining: f32,
     point: Vec2f,
     index: i32,
+    serial: i32,
 }
 
 impl Ord for AStarRecord
@@ -47,6 +48,26 @@ impl Ord for AStarRecord
 	} else if self.combined_distances < other.combined_distances {
 	    return Ordering::Greater;
 	}
+
+	// now compare based on remaining heuristic
+	if self.heuristic_remaining > other.heuristic_remaining {
+	    return Ordering::Less;
+	} else if self.heuristic_remaining < other.heuristic_remaining {
+	    return Ordering::Greater;
+	}
+
+	if self.distance_travelled > other.distance_travelled {
+	    return Ordering::Greater;
+	} else if self.distance_travelled < other.distance_travelled {
+	    return Ordering::Less;
+	}
+
+	if self.serial < other.serial {
+	    return Ordering::Greater;
+	} else if self.serial > other.serial {
+	    return Ordering::Less;
+	}
+
 	self.index.cmp(&other.index)
     }
 }
@@ -87,7 +108,7 @@ pub struct SquareNavScreen
     start_index: i32,
     end_index: i32,
 
-    a_star_nodes: BinaryHeap<AStarRecord>,
+    a_star_nodes: Vec<AStarRecord>,//BinaryHeap<AStarRecord>,
 
     found_distances: HashMap<i32, f32>,
     open_set: HashSet<i32>,
@@ -95,6 +116,8 @@ pub struct SquareNavScreen
     prev_index: HashMap<i32, i32>,
 
     is_8_way: bool,
+
+    node_serial: i32,
 }
 
 impl SquareNavScreen {
@@ -140,11 +163,12 @@ impl SquareNavScreen {
 	    sub_mode: SubMode::AddPoints,
 	    start_index: -1,
 	    end_index: -1,
-	    a_star_nodes: BinaryHeap::new(),
+	    a_star_nodes: Vec::new(),//BinaryHeap::new(),
 	    found_distances: HashMap::new(),
 	    open_set: HashSet::new(),
 	    prev_index: HashMap::new(),
 	    is_8_way: true,
+	    node_serial: 0,
 	}
     }
 
@@ -158,6 +182,10 @@ impl SquareNavScreen {
 	self.open_set.clear();
 	self.found_distances.clear();
 	self.a_star_nodes.clear();
+
+	for _i in 0..100 {
+	    println!("");
+	}
     }
 
     fn point_in_box(&self, p: &Vec2f) -> bool {
@@ -187,8 +215,55 @@ impl SquareNavScreen {
 	out_index
     }
 
-    fn calc_heuristic_by_indices(&self, a:i32, b:i32) -> f32 {
-	(self.points[a as usize] - self.points[b as usize]).mag()
+    fn calc_heuristic_by_indices(&self, a:i32, b:i32, si:i32) -> f32 {
+	//(self.points[a as usize] - self.points[b as usize]).mag()
+
+	let ap = self.points[a as usize];
+	let bp = self.points[b as usize];
+	let start_point = self.points[si as usize];
+
+	let ax = ap.x;
+	let ay = ap.y;
+	let bx = bp.x;
+	let by = bp.y;
+	let sx = start_point.x;
+	let sy = start_point.y;
+
+	// Amit wins again
+	// http://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html#breaking-ties
+
+	let dx1 = ax - bx;
+	let dy1 = ay - by;
+	let dx2 = sx - bx;
+	let dy2 = sy - by;
+	let cross = (dx1*dy2 - dx2*dy1).abs();
+
+	let dx = (bx-ax).abs();
+	let dy = (by-ay).abs();
+
+	if (!self.is_8_way) {
+	    return dx + dy + cross * 0.01;
+	}
+
+	let mut max_dim:f32 = 0.0;
+	let mut min_dim:f32 = 0.0;
+
+	if dx < dy {
+	    max_dim = dy;
+	    min_dim = dx;
+	} else {
+	    max_dim = dx;
+	    min_dim = dy;
+	}
+
+	if (min_dim < 1.0) {
+	    return max_dim;
+	}
+
+	let straight_leg = max_dim - min_dim;
+	let diag_leg = min_dim * 2.0_f32.sqrt();
+
+	straight_leg + diag_leg + cross*0.01
     }
 
     fn get_neighbor_space_indices(&self, i:i32) -> Vec<i32> {
@@ -197,7 +272,7 @@ impl SquareNavScreen {
 	let x = i % self.num_x;
 	let y = (i - x) / self.num_x;
 
-	println!("from {} x: {} y: {}", i, x, y);
+	//println!("from {} x: {} y: {}", i, x, y);
 
 	if (x > 0) {
 	    out_vec.push(self.space_coord_to_index(x-1, y));
@@ -231,7 +306,7 @@ impl SquareNavScreen {
 	    }
 	}
 
-	println!("neighbors {:?}", out_vec);
+	//println!("neighbors {:?}", out_vec);
 
 	out_vec
     }
@@ -246,13 +321,24 @@ impl SquareNavScreen {
 	    return;
 	}
 
+	println!("Nodes");
+	for n in &self.a_star_nodes {
+	    println!("{}  f {} h {} g {} s {}",
+		     n.index,
+		     n.combined_distances,
+		     n.heuristic_remaining,
+		     n.distance_travelled,
+		     n.serial,
+	    );
+	}
+
 	match self.a_star_nodes.pop() {
 	    None => {
 		// first step; push start on
 		println!("starting search");
 
 		let h = self.calc_heuristic_by_indices(
-			self.start_index, self.end_index);
+			self.start_index, self.end_index, self.start_index);
 
 		self.a_star_nodes.push(AStarRecord {
 		    combined_distances: h,
@@ -260,12 +346,15 @@ impl SquareNavScreen {
 		    heuristic_remaining: h,
 		    point: self.points[self.start_index as usize],
 		    index: self.start_index,
+		    serial: 0,
 		});
+
 		self.found_distances.insert(self.start_index, 0.0);
 		self.open_set.insert(self.start_index);
 		self.prev_index.insert(self.start_index, -1);
 	    }
 	    Some(n) => {
+		self.node_serial += 1;
 		//println!("continuing search");
 		println!("processing {:?}", n);
 
@@ -289,17 +378,19 @@ impl SquareNavScreen {
 			println!("inserting {} with elapsed dist {}",
 			neighbor_index,
 			new_elapsed_dist);*/
-			
+
 			let new_h = self.calc_heuristic_by_indices(
-			    neighbor_index_i32, self.end_index);
-			
+			    neighbor_index_i32, self.end_index, self.start_index);
+
 			self.a_star_nodes.push(AStarRecord {
 			    combined_distances: new_h + new_elapsed_dist,
 			    distance_travelled: new_elapsed_dist,
 			    heuristic_remaining: new_h,
 			    point: neighbor_point,
 			    index: neighbor_index_i32,
+			    serial: self.node_serial,
 			});
+			self.a_star_nodes.sort();
 			self.found_distances.insert(neighbor_index_i32,
 						    new_elapsed_dist);
 			self.open_set.insert(neighbor_index_i32);
@@ -358,7 +449,7 @@ impl Screen for SquareNavScreen {
 	    self.start_index = gen_range::<i32>(0, self.points.len() as i32);
 	    self.end_index = gen_range::<i32>(0, self.points.len() as i32);
 	    println!("start {} end {}", self.start_index, self.end_index);
-	    
+
 	    self.sub_mode = SubMode::Show;
 	}
     }
@@ -390,7 +481,7 @@ impl Screen for SquareNavScreen {
 		}
 
 		let i_i32 = i as i32;
-		
+
 		if self.open_set.contains(&i_i32) {
 		    dot_size = 10.0;
 		}
@@ -412,6 +503,12 @@ impl Screen for SquareNavScreen {
 
 
 		draw_circle(p.x, p.y, dot_size * 0.5, c);
+
+		/*
+		let label = format!("{}", i);
+		draw_text(&label, p.x - 12.0, p.y - 12.0,
+			  12.0, BLACK);*/
+
 	    }
 	}
 
@@ -437,7 +534,7 @@ impl Screen for SquareNavScreen {
 	    if (*prev_index == -1) {
 		continue;
 	    }
-	    
+
 	    let n = self.points[(*node_index) as usize];
 	    let p = self.points[(*prev_index) as usize];
 
