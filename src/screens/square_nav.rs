@@ -36,7 +36,6 @@ struct AStarRecord
     heuristic_remaining: f32,
     point: Vec2f,
     index: i32,
-    serial: i32,
 }
 
 impl Ord for AStarRecord
@@ -59,12 +58,6 @@ impl Ord for AStarRecord
 	if self.distance_travelled > other.distance_travelled {
 	    return Ordering::Greater;
 	} else if self.distance_travelled < other.distance_travelled {
-	    return Ordering::Less;
-	}
-
-	if self.serial < other.serial {
-	    return Ordering::Greater;
-	} else if self.serial > other.serial {
 	    return Ordering::Less;
 	}
 
@@ -116,8 +109,6 @@ pub struct SquareNavScreen
     prev_index: HashMap<i32, i32>,
 
     is_8_way: bool,
-
-    node_serial: i32,
 }
 
 impl SquareNavScreen {
@@ -168,7 +159,6 @@ impl SquareNavScreen {
 	    open_set: HashSet::new(),
 	    prev_index: HashMap::new(),
 	    is_8_way: true,
-	    node_serial: 0,
 	}
     }
 
@@ -329,7 +319,6 @@ impl SquareNavScreen {
 		    heuristic_remaining: h,
 		    point: self.points[self.start_index as usize],
 		    index: self.start_index,
-		    serial: 0,
 		});
 
 		self.found_distances.insert(self.start_index, 0.0);
@@ -337,8 +326,6 @@ impl SquareNavScreen {
 		self.prev_index.insert(self.start_index, -1);
 	    }
 	    Some(n) => {
-		self.node_serial += 1;
-
 		let neighbor_space_list = self.get_neighbor_space_indices(n.index);
 
 		for neighbor_index in neighbor_space_list {
@@ -363,7 +350,6 @@ impl SquareNavScreen {
 			    heuristic_remaining: new_h,
 			    point: neighbor_point,
 			    index: neighbor_index_i32,
-			    serial: self.node_serial,
 			});
 			self.found_distances.insert(neighbor_index_i32,
 						    new_elapsed_dist);
