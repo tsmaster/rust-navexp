@@ -108,7 +108,7 @@ pub struct SquareNavScreen
     start_index: i32,
     end_index: i32,
 
-    a_star_nodes: Vec<AStarRecord>,//BinaryHeap<AStarRecord>,
+    a_star_nodes: BinaryHeap<AStarRecord>,
 
     found_distances: HashMap<i32, f32>,
     open_set: HashSet<i32>,
@@ -163,7 +163,7 @@ impl SquareNavScreen {
 	    sub_mode: SubMode::AddPoints,
 	    start_index: -1,
 	    end_index: -1,
-	    a_star_nodes: Vec::new(),//BinaryHeap::new(),
+	    a_star_nodes: BinaryHeap::new(),
 	    found_distances: HashMap::new(),
 	    open_set: HashSet::new(),
 	    prev_index: HashMap::new(),
@@ -182,10 +182,6 @@ impl SquareNavScreen {
 	self.open_set.clear();
 	self.found_distances.clear();
 	self.a_star_nodes.clear();
-
-	for _i in 0..100 {
-	    println!("");
-	}
     }
 
     fn point_in_box(&self, p: &Vec2f) -> bool {
@@ -194,8 +190,6 @@ impl SquareNavScreen {
 	    p.y >= 0.0 &&
 	    p.y < screen_height()
     }
-
-
 
     fn find_index(&self, target: &Vec2f) -> i32 {
 	let mut out_index = -1;
@@ -321,17 +315,6 @@ impl SquareNavScreen {
 	    return;
 	}
 
-	println!("Nodes");
-	for n in &self.a_star_nodes {
-	    println!("{}  f {} h {} g {} s {}",
-		     n.index,
-		     n.combined_distances,
-		     n.heuristic_remaining,
-		     n.distance_travelled,
-		     n.serial,
-	    );
-	}
-
 	match self.a_star_nodes.pop() {
 	    None => {
 		// first step; push start on
@@ -355,13 +338,10 @@ impl SquareNavScreen {
 	    }
 	    Some(n) => {
 		self.node_serial += 1;
-		//println!("continuing search");
-		println!("processing {:?}", n);
 
 		let neighbor_space_list = self.get_neighbor_space_indices(n.index);
 
 		for neighbor_index in neighbor_space_list {
-		    //println!("considering neighbor index {}", neighbor_index);
 		    let neighbor_point = self.points[neighbor_index as usize];
 		    let this_step_dist = (neighbor_point - n.point).mag();
 		    let new_elapsed_dist = n.distance_travelled + this_step_dist;
@@ -374,11 +354,6 @@ impl SquareNavScreen {
 		    }
 
 		    if insert_node {
-			/*
-			println!("inserting {} with elapsed dist {}",
-			neighbor_index,
-			new_elapsed_dist);*/
-
 			let new_h = self.calc_heuristic_by_indices(
 			    neighbor_index_i32, self.end_index, self.start_index);
 
@@ -390,7 +365,6 @@ impl SquareNavScreen {
 			    index: neighbor_index_i32,
 			    serial: self.node_serial,
 			});
-			self.a_star_nodes.sort();
 			self.found_distances.insert(neighbor_index_i32,
 						    new_elapsed_dist);
 			self.open_set.insert(neighbor_index_i32);
