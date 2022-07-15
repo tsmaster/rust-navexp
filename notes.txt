@@ -17,6 +17,13 @@ https://blog.rust-lang.org/2015/05/11/traits.html
 
 
 
+
+Squelch RMB
+https://stackoverflow.com/questions/59899658/how-do-i-handle-a-right-click-event-in-blazor-client-side-wasm-without-showing
+https://stackoverflow.com/questions/381795/how-to-disable-right-click-context-menu-in-javascript
+
+
+
 Building WASM
 debug
 cargo build --target wasm32-unknown-unknown
@@ -32,3 +39,6 @@ basic-http-server .
 
 
 also make sure to copy Textures or other assets to the debug/release folder
+
+
+

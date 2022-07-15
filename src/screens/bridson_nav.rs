@@ -100,7 +100,9 @@ pub struct BridsonNavScreen
     found_distances: HashMap<i32, f32>,
     open_set: HashSet<i32>,
 
-    prev_index: HashMap<i32, i32>
+    prev_index: HashMap<i32, i32>,
+
+    wall_nodes: HashSet<i32>,
 }
 
 impl BridsonNavScreen {
@@ -160,6 +162,7 @@ impl BridsonNavScreen {
 	    found_distances: HashMap::new(),
 	    open_set: HashSet::new(),
 	    prev_index: HashMap::new(),
+	    wall_nodes: HashSet::new(),
 	}
     }
 
@@ -177,6 +180,7 @@ impl BridsonNavScreen {
 	self.open_set.clear();
 	self.found_distances.clear();
 	self.a_star_nodes.clear();
+	self.wall_nodes.clear();
     }
 
     fn point_in_box(&self, p: &Vec2f) -> bool {
@@ -367,6 +371,9 @@ impl BridsonNavScreen {
 			let cell = &vd.cell(n.index as usize);
 
 			for neighbor_index in cell.iter_neighbors() {
+			    if self.wall_nodes.contains(&(neighbor_index as i32)) {
+				continue;
+			    }
 			    //println!("considering neighbor index {}", neighbor_index);
 			    let neighbor_point = self.points[neighbor_index as usize];
 			    let this_step_dist = (neighbor_point - n.point).mag();
@@ -449,6 +456,44 @@ impl Screen for BridsonNavScreen {
 	    self.sub_mode = SubMode::FindPath;
 	}
 
+	if is_key_pressed(KeyCode::W) {
+	    println!("W");
+	    let m_pos:Vec2 = mouse_position().into();
+	    let mouse_pos_vec = Vec2f::new(m_pos.x, m_pos.y);
+	    let idx = self.find_index(&mouse_pos_vec);
+
+	    if self.wall_nodes.contains(&idx) {
+		self.wall_nodes.remove(&idx);
+	    } else {
+		self.wall_nodes.insert(idx);
+	    }
+	}
+
+
+	if is_mouse_button_down(MouseButton::Left) {
+
+	    let paint_radius = self.cell_width * 1.5;
+
+	    let m_pos:Vec2 = mouse_position().into();
+	    let mouse_pos_vec = Vec2f::new(m_pos.x, m_pos.y);
+	    for idx in 0 .. self.points.len() {
+		let p = &self.points[idx];
+
+		let dist = (mouse_pos_vec - *p).mag();
+		if dist < paint_radius {
+		    self.wall_nodes.insert(idx as i32);
+		}
+	    }
+	}
+
+	if is_mouse_button_down(MouseButton::Right) {
+	    let m_pos:Vec2 = mouse_position().into();
+	    let mouse_pos_vec = Vec2f::new(m_pos.x, m_pos.y);
+	    let idx = self.find_index(&mouse_pos_vec);
+
+	    self.wall_nodes.remove(&idx);
+	}
+
 	if self.sub_mode == SubMode::FindPath {
 	    self.advance_a_star();
 	}
@@ -520,6 +565,12 @@ impl Screen for BridsonNavScreen {
 		if self.open_set.contains(&i_i32) {
 		    dot_size = 10.0;
 		}
+
+		if self.wall_nodes.contains(&i_i32) {
+		    dot_size = 15.0;
+		    c = PURPLE;
+		}
+
 
 		/*
 		draw_rectangle(p.x,

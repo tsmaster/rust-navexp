@@ -21,11 +21,19 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+const SQRT_2: f32 = 1.41421356237;
+
 #[derive(PartialEq)]
 enum SubMode {
     AddPoints,
     Show,
     FindPath,
+}
+
+enum Heuristic {
+    Euclid,
+    Manhattan,
+    Exact_8,
 }
 
 #[derive(Debug)]
@@ -48,17 +56,17 @@ impl Ord for AStarRecord
 	    return Ordering::Greater;
 	}
 
+	if self.distance_travelled > other.distance_travelled {
+	    return Ordering::Greater;
+	} else if self.distance_travelled < other.distance_travelled {
+	    return Ordering::Less;
+	}
+
 	// now compare based on remaining heuristic
 	if self.heuristic_remaining > other.heuristic_remaining {
 	    return Ordering::Less;
 	} else if self.heuristic_remaining < other.heuristic_remaining {
 	    return Ordering::Greater;
-	}
-
-	if self.distance_travelled > other.distance_travelled {
-	    return Ordering::Greater;
-	} else if self.distance_travelled < other.distance_travelled {
-	    return Ordering::Less;
 	}
 
 	self.index.cmp(&other.index)
@@ -109,6 +117,10 @@ pub struct SquareNavScreen
     prev_index: HashMap<i32, i32>,
 
     is_8_way: bool,
+
+    heuristic: Heuristic,
+
+    wall_nodes: HashSet<i32>,
 }
 
 impl SquareNavScreen {
@@ -159,6 +171,8 @@ impl SquareNavScreen {
 	    open_set: HashSet::new(),
 	    prev_index: HashMap::new(),
 	    is_8_way: true,
+	    heuristic: Heuristic::Euclid,
+	    wall_nodes: HashSet::new(),
 	}
     }
 
@@ -172,6 +186,7 @@ impl SquareNavScreen {
 	self.open_set.clear();
 	self.found_distances.clear();
 	self.a_star_nodes.clear();
+	self.wall_nodes.clear();
     }
 
     fn point_in_box(&self, p: &Vec2f) -> bool {
@@ -202,6 +217,23 @@ impl SquareNavScreen {
     fn calc_heuristic_by_indices(&self, a:i32, b:i32, si:i32) -> f32 {
 	//(self.points[a as usize] - self.points[b as usize]).mag()
 
+
+	match(self.heuristic) {
+	    Heuristic::Euclid => {self.calc_euclid_heuristic_by_indices(a,b, si)},
+	    Heuristic::Manhattan => {self.calc_manhattan_heuristic_by_indices(a,b,si)},
+	    Heuristic::Exact_8 => {self.calc_exact_8_heuristic_by_indices(a,b,si)},
+	}
+    }
+
+    fn calc_euclid_heuristic_by_indices(&self, a:i32, b:i32, si: i32) -> f32 {
+	let ap = self.points[a as usize];
+	let bp = self.points[b as usize];
+
+	(bp - ap).mag()
+    }
+
+
+    fn calc_manhattan_heuristic_by_indices(&self, a:i32, b:i32, si: i32) -> f32 {
 	let ap = self.points[a as usize];
 	let bp = self.points[b as usize];
 	let start_point = self.points[si as usize];
@@ -245,18 +277,68 @@ impl SquareNavScreen {
 	}
 
 	let straight_leg = max_dim - min_dim;
-	let diag_leg = min_dim * 2.0_f32.sqrt();
+	let diag_leg = min_dim * SQRT_2;
 
-	straight_leg + diag_leg + cross*0.01
+	let flat_cheat = 1.0 + 1.0/1000.0;
+
+	(straight_leg + diag_leg) * flat_cheat //+ cross*0.01
     }
+
+
+    fn calc_exact_8_heuristic_by_indices(&self, a:i32, b:i32, si: i32) -> f32 {
+	let ap = self.points[a as usize];
+	let bp = self.points[b as usize];
+	let start_point = self.points[si as usize];
+
+	let ax = ap.x;
+	let ay = ap.y;
+	let bx = bp.x;
+	let by = bp.y;
+	let sx = start_point.x;
+	let sy = start_point.y;
+
+	// Amit wins again
+	// http://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html#breaking-ties
+
+	let dx1 = ax - bx;
+	let dy1 = ay - by;
+	let dx2 = sx - bx;
+	let dy2 = sy - by;
+	let cross = (dx1*dy2 - dx2*dy1).abs();
+
+	let dx = (bx-ax).abs();
+	let dy = (by-ay).abs();
+
+	let mut max_dim:f32 = 0.0;
+	let mut min_dim:f32 = 0.0;
+
+	if dx < dy {
+	    max_dim = dy;
+	    min_dim = dx;
+	} else {
+	    max_dim = dx;
+	    min_dim = dy;
+	}
+
+	if (min_dim < 1.0) {
+	    return max_dim;
+	}
+
+	let straight_leg = max_dim - min_dim;
+	let diag_leg = min_dim * SQRT_2;
+
+	let flat_cheat = 1.0 + 1.0/1000.0;
+
+	(straight_leg + diag_leg) * flat_cheat //+ cross*0.01
+    }
+    
+
 
     fn get_neighbor_space_indices(&self, i:i32) -> Vec<i32> {
 	let mut out_vec = Vec::<i32>::new();
 
 	let x = i % self.num_x;
 	let y = (i - x) / self.num_x;
-
-	//println!("from {} x: {} y: {}", i, x, y);
 
 	if (x > 0) {
 	    out_vec.push(self.space_coord_to_index(x-1, y));
@@ -289,8 +371,6 @@ impl SquareNavScreen {
 		out_vec.push(self.space_coord_to_index(x+1, y+1));
 	    }
 	}
-
-	//println!("neighbors {:?}", out_vec);
 
 	out_vec
     }
@@ -329,6 +409,9 @@ impl SquareNavScreen {
 		let neighbor_space_list = self.get_neighbor_space_indices(n.index);
 
 		for neighbor_index in neighbor_space_list {
+		    if self.wall_nodes.contains(&neighbor_index) {
+			continue;
+		    }
 		    let neighbor_point = self.points[neighbor_index as usize];
 		    let this_step_dist = (neighbor_point - n.point).mag();
 		    let new_elapsed_dist = n.distance_travelled + this_step_dist;
@@ -397,6 +480,43 @@ impl Screen for SquareNavScreen {
 	    self.reset();
 	}
 
+	if is_key_pressed(KeyCode::W) {
+	    println!("W");
+	    let m_pos:Vec2 = mouse_position().into();
+	    let mouse_pos_vec = Vec2f::new(m_pos.x, m_pos.y);
+	    let idx = self.find_index(&mouse_pos_vec);
+
+	    if self.wall_nodes.contains(&idx) {
+		self.wall_nodes.remove(&idx);
+	    } else {
+		self.wall_nodes.insert(idx);
+	    }
+	}
+
+	if is_mouse_button_down(MouseButton::Left) {
+
+	    let paint_radius = self.space_width * 1.5;
+
+	    let m_pos:Vec2 = mouse_position().into();
+	    let mouse_pos_vec = Vec2f::new(m_pos.x, m_pos.y);
+	    for idx in 0 .. self.points.len() {
+		let p = &self.points[idx];
+
+		let dist = (mouse_pos_vec - *p).mag();
+		if dist < paint_radius {
+		    self.wall_nodes.insert(idx as i32);
+		}
+	    }
+	}
+
+	if is_mouse_button_down(MouseButton::Right) {
+	    let m_pos:Vec2 = mouse_position().into();
+	    let mouse_pos_vec = Vec2f::new(m_pos.x, m_pos.y);
+	    let idx = self.find_index(&mouse_pos_vec);
+
+	    self.wall_nodes.remove(&idx);
+	}
+
 	if is_key_down(KeyCode::F) {
 	    self.sub_mode = SubMode::FindPath;
 	}
@@ -444,6 +564,11 @@ impl Screen for SquareNavScreen {
 
 		if self.open_set.contains(&i_i32) {
 		    dot_size = 10.0;
+		}
+
+		if self.wall_nodes.contains(&i_i32) {
+		    dot_size = 15.0;
+		    c = PURPLE;
 		}
 
 		/*

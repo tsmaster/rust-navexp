@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-macroquad = "0.3.20"
+macroquad = "0.3.22"
 #sapp-wasm = "0.1.26"
 
 #futures = "0.3"

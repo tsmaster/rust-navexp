@@ -56,6 +56,10 @@ async fn main() {
     loop {
 	//println!("FPS: {}", get_fps());
 
+	if is_key_pressed(KeyCode::Space) {
+	    println!("SPACE");
+	}
+
 	let scr:&mut dyn Screen = match game_mode {
 	    GameScreen::BdgLogo => &mut bdg_logo_screen,
 	    GameScreen::Title => &mut title_screen,
